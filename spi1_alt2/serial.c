@@ -88,11 +88,20 @@ void configure_serial()
 
   IRCON2 &= ~BIT2; // Clear UTX1IF
   IEN2 |= BIT3;    // Enable UTX1IE interrupt
+  
+  // T4IF automatically cleared by hardwaware when CPU vectors to the ISR
+  IEN1 |= BIT4;		// Enable T4IE interrupt
+}
+
+void t4_isr(void) __interrupt T4_VECTOR {
+  spi_mode = SPI_MODE_WAIT;
 }
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
   uint8_t value;
   value = U1DBUF;
+  TIMIF |= 0x03;
+  T4CTL = 0x1E;
 
   if (spi_mode == SPI_MODE_WAIT && value == 0x99) {
     if (ready_to_send) {
@@ -103,6 +112,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     }
     spi_mode = SPI_MODE_SIZE;
     U1DBUF = slave_send_size;
+	T4CTL = 0x00;
     return;
   }
 
@@ -113,6 +123,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     } else {
       spi_mode = SPI_MODE_WAIT;
     }
+	T4CTL = 0x00;
     return;
   }
 
@@ -132,6 +143,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     if (slave_send_size == 0 && master_send_size == 0) {
       spi_mode = SPI_MODE_WAIT;
     }
+	T4CTL = 0x00;
   }
 }
 
@@ -155,6 +167,7 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
   } else {
     U1DBUF = 0x99;
   }
+  T4CTL = 0x00;
 }
 
 uint8_t serial_rx_byte() {

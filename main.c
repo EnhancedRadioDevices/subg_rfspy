@@ -15,6 +15,7 @@ void rf_isr(void) __interrupt RF_VECTOR;
 
 #ifdef USES_USART1_RX_ISR
 void rx1_isr(void) __interrupt URX1_VECTOR;
+void t4_isr(void) __interrupt T4_VECTOR;
 #endif 
 
 #ifdef USES_USART1_TX_ISR
