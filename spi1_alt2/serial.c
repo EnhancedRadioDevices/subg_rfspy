@@ -90,18 +90,22 @@ void configure_serial()
   IEN2 |= BIT3;    // Enable UTX1IE interrupt
   
   // T4IF automatically cleared by hardwaware when CPU vectors to the ISR
-  IEN1 |= BIT4;		// Enable T4IE interrupt
+  T4IE = 1;		// Enable T4IE interrupt
+  IP0 = 0x10;	// Set Priority Group 4 to Priority Level 1 (default 0)
+  T4CC0 = 0xFF; // Set Timer 4 Compare value 
 }
 
-void t4_isr(void) __interrupt T4_VECTOR {
+void t4_isr(void) __interrupt T4_VECTOR { //
+  T4OVFIF = 0;
   spi_mode = SPI_MODE_WAIT;
+  T4CTL = 0x00;
 }
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
   uint8_t value;
   value = U1DBUF;
-  TIMIF |= 0x03;
-  T4CTL = 0x1E;
+  T4OVFIF = 0; // 
+  T4CTL |= 0xFF; // Start Timer4 with 128 div, Up/Down Mode
 
   if (spi_mode == SPI_MODE_WAIT && value == 0x99) {
     if (ready_to_send) {
@@ -112,7 +116,6 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     }
     spi_mode = SPI_MODE_SIZE;
     U1DBUF = slave_send_size;
-	T4CTL = 0x00;
     return;
   }
 
@@ -123,7 +126,6 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     } else {
       spi_mode = SPI_MODE_WAIT;
     }
-	T4CTL = 0x00;
     return;
   }
 
@@ -138,13 +140,14 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
       if (input_size == master_send_size) {
         master_send_size = 0;
         serial_data_available = 1;
+		spi_mode = SPI_MODE_WAIT; //
       }
     }
     if (slave_send_size == 0 && master_send_size == 0) {
       spi_mode = SPI_MODE_WAIT;
     }
-	T4CTL = 0x00;
   }
+  T4CTL = 0x00; // End timer
 }
 
 void tx1_isr(void) __interrupt UTX1_VECTOR {
@@ -167,7 +170,6 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
   } else {
     U1DBUF = 0x99;
   }
-  T4CTL = 0x00;
 }
 
 uint8_t serial_rx_byte() {
