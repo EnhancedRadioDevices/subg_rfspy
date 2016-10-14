@@ -90,22 +90,30 @@ void configure_serial()
   IEN2 |= BIT3;    // Enable UTX1IE interrupt
   
   // T4IF automatically cleared by hardwaware when CPU vectors to the ISR
-  T4IE = 1;		// Enable T4IE interrupt
+  
   IP0 = 0x10;	// Set Priority Group 4 to Priority Level 1 (default 0)
-  T4CC0 = 0xFF; // Set Timer 4 Compare value 
+  T4CC0 = 0xFF; // Set Timer 4 Compare value
+  T4CTL = 0xE7; // Configure Timer 4 with 128 div, Up/Down Mode, clear counter, suspended
 }
 
 void t4_isr(void) __interrupt T4_VECTOR { //
-  T4OVFIF = 0;
+  GREEN_LED = !GREEN_LED;
+  T4OVFIF = 0; // Clear Timer 4 Overflow flag
+  T4CTL = 0xE7;
   spi_mode = SPI_MODE_WAIT;
-  T4CTL = 0x00;
+  master_send_size = 0;
+  input_size = 0;
+  T4IE = 0;		// Disable T4IE interrupt
 }
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
   uint8_t value;
   value = U1DBUF;
-  T4OVFIF = 0; // 
-  T4CTL |= 0xFF; // Start Timer4 with 128 div, Up/Down Mode
+  T4CTL |= 0x0C; // Enable Timer 4 Overflow Interrupt Mask, clear counter
+  T4OVFIF = 0; // Clear Timer 4 Overflow flag
+  T4IF = 0; // Clear Timer 4 Interrupt flag
+  T4CTL |= 0x10; // Start Timer 4
+  T4IE = 1;		// Enable T4IE interrupt
 
   if (spi_mode == SPI_MODE_WAIT && value == 0x99) {
     if (ready_to_send) {
@@ -116,6 +124,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     }
     spi_mode = SPI_MODE_SIZE;
     U1DBUF = slave_send_size;
+	T4IE = 0;		// Disable T4IE interrupt
     return;
   }
 
@@ -126,6 +135,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
     } else {
       spi_mode = SPI_MODE_WAIT;
     }
+	T4IE = 0;		// Disable T4IE interrupt
     return;
   }
 
@@ -147,7 +157,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
       spi_mode = SPI_MODE_WAIT;
     }
   }
-  T4CTL = 0x00; // End timer
+  T4IE = 0;		// Disable T4IE interrupt
 }
 
 void tx1_isr(void) __interrupt UTX1_VECTOR {
@@ -175,6 +185,11 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
 uint8_t serial_rx_byte() {
   uint8_t s_data;
   while(!SERIAL_DATA_AVAILABLE);
+  T4CTL |= 0x0C; // Enable Timer 4 Overflow Interrupt Mask, clear counter
+  T4OVFIF = 0; // Clear Timer 4 Overflow flag
+  T4IF = 0; // Clear Timer 4 Interrupt flag
+  T4CTL |= 0x10; // Start Timer 4
+  T4IE = 1;		// Enable T4IE interrupt
   s_data = spi_input_buf[input_tail_idx];
   input_tail_idx++;
   if (input_tail_idx >= SPI_BUF_LEN) {
@@ -184,6 +199,7 @@ uint8_t serial_rx_byte() {
   if (input_size == 0) {
     serial_data_available = 0;
   }
+  T4IE = 0;
   return s_data;
 } 
 
