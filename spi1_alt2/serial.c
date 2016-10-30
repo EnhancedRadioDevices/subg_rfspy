@@ -184,12 +184,7 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
 
 uint8_t serial_rx_byte() {
   uint8_t s_data;
-  while(!SERIAL_DATA_AVAILABLE);
-  T4CTL |= 0x0C; // Enable Timer 4 Overflow Interrupt Mask, clear counter
-  T4OVFIF = 0; // Clear Timer 4 Overflow flag
-  T4IF = 0; // Clear Timer 4 Interrupt flag
-  T4CTL |= 0x10; // Start Timer 4
-  T4IE = 1;		// Enable T4IE interrupt
+  while(!SERIAL_DATA_AVAILABLE); // insert smart interrupt here.
   s_data = spi_input_buf[input_tail_idx];
   input_tail_idx++;
   if (input_tail_idx >= SPI_BUF_LEN) {
@@ -199,7 +194,6 @@ uint8_t serial_rx_byte() {
   if (input_size == 0) {
     serial_data_available = 0;
   }
-  T4IE = 0;
   return s_data;
 } 
 
