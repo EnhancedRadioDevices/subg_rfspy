@@ -10,6 +10,7 @@ volatile uint8_t __xdata spi_input_buf[SPI_BUF_LEN];
 volatile uint8_t input_size = 0;
 volatile uint8_t input_head_idx = 0;
 volatile uint8_t input_tail_idx = 0;
+volatile uint8_t input_ckpt_idx = 0;
 
 volatile uint8_t __xdata spi_output_buf[SPI_BUF_LEN];
 volatile uint8_t output_size = 0;
@@ -97,12 +98,19 @@ void configure_serial()
 }
 
 void t4_isr(void) __interrupt T4_VECTOR { //
-  GREEN_LED = !GREEN_LED;
   T4OVFIF = 0; // Clear Timer 4 Overflow flag
   T4CTL = 0xE7;
   spi_mode = SPI_MODE_WAIT;
   master_send_size = 0;
   input_size = 0;
+  if (input_tail_idx > input_ckpt_idx ) {
+	  if (input_tail_idx <= input_head_idx || input_head_idx < input_ckpt_idx) {
+		  input_tail_idx = input_ckpt_idx;
+	  }
+  } else if (input_tail_idx <= input_head_idx && input_head_idx < input_ckpt_idx) {
+	  input_tail_idx = input_ckpt_idx;
+  }
+  input_head_idx = input_ckpt_idx;
   T4IE = 0;		// Disable T4IE interrupt
 }
 
@@ -151,6 +159,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
         master_send_size = 0;
         serial_data_available = 1;
 		spi_mode = SPI_MODE_WAIT;
+		input_ckpt_idx = input_head_idx;
 		T4IE = 0;
       }
     }
@@ -186,7 +195,7 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
 
 uint8_t serial_rx_byte() {
   uint8_t s_data;
-  while(!SERIAL_DATA_AVAILABLE); // insert smart interrupt here.
+  while(!SERIAL_DATA_AVAILABLE);
   s_data = spi_input_buf[input_tail_idx];
   input_tail_idx++;
   if (input_tail_idx >= SPI_BUF_LEN) {
