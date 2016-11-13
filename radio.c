@@ -14,6 +14,12 @@ volatile uint8_t __xdata radio_rx_buf[MAX_PACKET_LEN];
 volatile uint8_t radio_rx_buf_len = 0;
 volatile uint8_t packet_count = 1;
 volatile uint8_t underflow_count = 0;
+volatile uint8_t packet_length_signifier;
+volatile enum packet_mode {
+	FOOTER,
+	FIXED,
+	VARIABLE
+};
 
 void configure_radio()
 {
@@ -80,7 +86,7 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
     if (radio_rx_buf_len == 0) {
       radio_rx_buf[0] = RSSI; 
       if (radio_rx_buf[0] == 0) {
-        radio_rx_buf[0] = 1; // Prevent RSSI of 0 from triggering end-of-packet
+        radio_rx_buf[0] = packet_length_signifier + 1; // Prevent RSSI of 0 from triggering end-of-packet
       }
       radio_rx_buf[1] = packet_count; 
       packet_count++;
@@ -95,7 +101,7 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
     } else {
       // Overflow
     }
-    if (d_byte == 0) {
+    if (d_byte == packet_length_signifier) {
       RFST = RFST_SIDLE;
       while(MARCSTATE!=MARC_STATE_IDLE);
     }
@@ -105,7 +111,7 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
       d_byte = radio_tx_buf[radio_tx_buf_idx++];
       RFD = d_byte;
     } else {
-      RFD = 0;
+      RFD = packet_length_signifier;
       underflow_count++;
       // We wait a few counts to make sure the radio has sent the last bytes
       // before turning it off.
