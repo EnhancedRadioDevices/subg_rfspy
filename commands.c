@@ -337,7 +337,7 @@ void cmd_update_register() {
 	  packet_length_signifier = value;
 	  break;
 	case 0xFE:
-	  packet_mode = value:
+	  packet_mode = value;
 	  break;
     default:
       rval = 2;

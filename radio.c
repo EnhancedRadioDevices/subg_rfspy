@@ -15,11 +15,12 @@ volatile uint8_t radio_rx_buf_len = 0;
 volatile uint8_t packet_count = 1;
 volatile uint8_t underflow_count = 0;
 volatile uint8_t packet_length_signifier;
-volatile enum packet_mode {
+volatile enum MODE {
 	FOOTER,
 	FIXED,
 	VARIABLE
 };
+volatile enum MODE packet_mode = FOOTER;
 
 void configure_radio()
 {
