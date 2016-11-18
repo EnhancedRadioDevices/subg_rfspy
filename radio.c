@@ -86,8 +86,8 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
     d_byte = RFD;
     if (radio_rx_buf_len == 0) {
       radio_rx_buf[0] = RSSI; 
-      if (radio_rx_buf[0] == 0) {
-        radio_rx_buf[0] = packet_length_signifier + 1; // Prevent RSSI of 0 from triggering end-of-packet
+      if (radio_rx_buf[0] == packet_length_signifier) {
+        radio_rx_buf[0] = packet_length_signifier + 1; // Prevent RSSI of pls from triggering end-of-packet
       }
       radio_rx_buf[1] = packet_count; 
       packet_count++;
