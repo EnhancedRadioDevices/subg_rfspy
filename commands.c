@@ -29,9 +29,9 @@ void cmd_get_packet() {
   channel = serial_rx_byte();
   timeout_ms = serial_rx_long();
   result = get_packet_and_write_to_serial(channel, timeout_ms);
-  if (result != 0) {
+  if (result != packet_length_signifier) {
     serial_tx_byte(result);
-    serial_tx_byte(0);
+    serial_tx_byte(packet_length_signifier);
   }
 }
 
