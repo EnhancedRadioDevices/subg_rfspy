@@ -6,7 +6,7 @@
 #include "delay.h"
 #include "timer.h"
 
-#define MAX_PACKET_LEN 10
+#define MAX_PACKET_LEN 192
 volatile uint8_t __xdata radio_tx_buf[MAX_PACKET_LEN];
 volatile uint8_t radio_tx_buf_len = 0;
 volatile uint8_t radio_tx_buf_idx = 0;
@@ -91,11 +91,12 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
       }
       radio_rx_buf[1] = packet_count; 
       packet_count++;
+	  if (packet_count == packet_length_signifier) {
+        packet_count = packet_count + 1;
+      }
       radio_rx_buf_len = 2;
     }
-    if (packet_count == 0) {
-      packet_count = 1;
-    }
+	
     if (radio_rx_buf_len < MAX_PACKET_LEN) {
       radio_rx_buf[radio_rx_buf_len] = d_byte;
       radio_rx_buf_len++;
@@ -103,7 +104,6 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
       // Overflow
     }
     if (d_byte == packet_length_signifier) {
-      serial_tx_byte(251);
       RFST = RFST_SIDLE;
       while(MARCSTATE!=MARC_STATE_IDLE);
     }
@@ -112,13 +112,12 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
     if (radio_tx_buf_len > radio_tx_buf_idx) {
       d_byte = radio_tx_buf[radio_tx_buf_idx++];
       RFD = d_byte;
-	  serial_tx_byte(d_byte);
     } else {
       RFD = packet_length_signifier;
       underflow_count++;
       // We wait a few counts to make sure the radio has sent the last bytes
       // before turning it off.
-      if (underflow_count == 2) {
+      if (underflow_count == 4) {
         RFST = RFST_SIDLE;
       }
     }
@@ -221,7 +220,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 
   uint8_t read_idx = 0;
   uint8_t d_byte = 0;
-  uint8_t rval = 0;
+  uint8_t rval = packet_length_signifier;
 
   reset_timer();
 
@@ -247,27 +246,23 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
       d_byte = radio_rx_buf[read_idx];
       serial_tx_byte(d_byte);
       read_idx++;
-      if (read_idx > 1 && read_idx == radio_rx_buf_len && d_byte == packet_length_signifier) {
+      if (read_idx > 1 && d_byte == packet_length_signifier) {
         // End of packet.
-		serial_tx_byte(254);//
         break;
       }
     }
 
-    if (timeout_ms > 0 && timerCounter > timeout_ms && radio_rx_buf_len == 0) {
+    if (timeout_ms > 0 && timerCounter > timeout_ms) {
       rval = ERROR_RX_TIMEOUT;
       break;
     }
   
-    #ifndef TI_DONGLE
-    #else
-    #endif
     // Also going to watch serial in case the client wants to interrupt rx
     if (SERIAL_DATA_AVAILABLE) {
       // Received a byte from uart while waiting for radio packet
       // We will interrupt the RX and go handle the command.
       interrupting_cmd = serial_rx_byte();
-      rval = ERROR_CMD_INTERRUPTED;
+	  rval = ERROR_CMD_INTERRUPTED;
       break;
     }
   }

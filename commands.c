@@ -31,8 +31,8 @@ void cmd_get_packet() {
   result = get_packet_and_write_to_serial(channel, timeout_ms);
   if (result != packet_length_signifier) {
     serial_tx_byte(result);
-    serial_tx_byte(packet_length_signifier);
   }
+  serial_tx_byte(0);
 }
 
 void cmd_get_state() {
