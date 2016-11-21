@@ -82,6 +82,7 @@ void configure_radio()
 
 void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
   uint8_t d_byte;
+  serial_tx_byte(239);
   if (MARCSTATE==MARC_STATE_RX) {
     d_byte = RFD;
 	switch(packet_mode) {
@@ -129,16 +130,19 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
         }
 		serial_tx_byte(253);
         break;
-	  case VARIABLE:
-        break;
 	  default:
+	    RFST = RFST_SIDLE;
+        while(MARCSTATE!=MARC_STATE_IDLE);
 	    break;
     }
   }
   else if (MARCSTATE==MARC_STATE_TX) {
+	serial_tx_byte(242);
     switch (packet_mode) { 
       case FOOTER:
+	    serial_tx_byte(241);
         if (radio_tx_buf_len > radio_tx_buf_idx) {
+		  serial_tx_byte(240);
           d_byte = radio_tx_buf[radio_tx_buf_idx++];
 		  serial_tx_byte(radio_tx_buf_idx);
           RFD = d_byte;
@@ -168,9 +172,8 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
         }
 		serial_tx_byte(253);
         break;
-      case VARIABLE:
-        break;
 	  default:
+	    RFST = RFST_SIDLE;
 	    break;
     }
   }
@@ -209,13 +212,19 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
   CHANNR = channel;
   //led_set_state(1,1);
 
+  serial_tx_byte(247);
+  serial_tx_byte(packet_mode);
+  
   switch (packet_mode) {
     case FOOTER:
       while (1) {
+		serial_tx_byte(248);
         s_byte = serial_rx_byte();
+		serial_tx_byte(243);
         if (radio_tx_buf_len == (MAX_PACKET_LEN - 1)) {
           s_byte = packet_length_signifier;
         }
+		serial_tx_byte(s_byte);
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
         if (s_byte == packet_length_signifier) {
 		  // End of packet
@@ -242,9 +251,8 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
       }
 	  serial_tx_byte(251);
       break;
-    case VARIABLE:
-      break;
 	default:
+	  serial_tx_byte(244);
       break;
   }
 
@@ -373,10 +381,9 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 	  }
 	  serial_tx_byte(251);
 	  break;
-	case VARIABLE:
-	  break;
 	default:
-	    break;
+	  serial_tx_byte(244);
+	  break;
   }
   RFST = RFST_SIDLE;
   //led_set_state(0,0);
