@@ -84,42 +84,83 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
   uint8_t d_byte;
   if (MARCSTATE==MARC_STATE_RX) {
     d_byte = RFD;
-    if (radio_rx_buf_len == 0) {
-      radio_rx_buf[0] = RSSI; 
-      if (radio_rx_buf[0] == packet_length_signifier) {
-        radio_rx_buf[0] = packet_length_signifier + 1; // Prevent RSSI of pls from triggering end-of-packet
-      }
-      radio_rx_buf[1] = packet_count; 
-      packet_count++;
-	  if (packet_count == packet_length_signifier) {
-        packet_count = packet_count + 1;
-      }
-      radio_rx_buf_len = 2;
-    }
+	switch(packet_mode) {
+      case FOOTER:
+        if (radio_rx_buf_len == 0) {
+          radio_rx_buf[0] = RSSI; 
+          if (radio_rx_buf[0] == packet_length_signifier) {
+            radio_rx_buf[0] = packet_length_signifier + 1; // Prevent RSSI of pls from triggering end-of-packet
+          }
+          radio_rx_buf[1] = packet_count; 
+          packet_count++;
+	      if (packet_count == packet_length_signifier) {
+            packet_count = packet_count + 1;
+          }
+          radio_rx_buf_len = 2;
+        }
 	
-    if (radio_rx_buf_len < MAX_PACKET_LEN) {
-      radio_rx_buf[radio_rx_buf_len] = d_byte;
-      radio_rx_buf_len++;
-    } else {
-      // Overflow
-    }
-    if (d_byte == packet_length_signifier) {
-      RFST = RFST_SIDLE;
-      while(MARCSTATE!=MARC_STATE_IDLE);
+        if (radio_rx_buf_len < MAX_PACKET_LEN) {
+          radio_rx_buf[radio_rx_buf_len] = d_byte;
+          radio_rx_buf_len++;
+        } else {
+          // Overflow
+        }
+        if (d_byte == packet_length_signifier) {
+          RFST = RFST_SIDLE;
+          while(MARCSTATE!=MARC_STATE_IDLE);
+        }
+        break;
+      case FIXED:
+	    if (radio_rx_buf_len == 0) {
+          radio_rx_buf[0] = RSSI; 
+          radio_rx_buf[1] = packet_count; 
+          packet_count++;
+          radio_rx_buf_len = 2;
+        }
+	
+        if (radio_rx_buf_len < packet_length_signifier) {
+          radio_rx_buf[radio_rx_buf_len] = d_byte;
+          radio_rx_buf_len++;
+        } else {
+          RFST = RFST_SIDLE;
+		  while(MARCSTATE!=MARC_STATE_IDLE);
+        }
+        break;
+	  case VARIABLE:
+        break;
     }
   }
   else if (MARCSTATE==MARC_STATE_TX) {
-    if (radio_tx_buf_len > radio_tx_buf_idx) {
-      d_byte = radio_tx_buf[radio_tx_buf_idx++];
-      RFD = d_byte;
-    } else {
-      RFD = packet_length_signifier;
-      underflow_count++;
-      // We wait a few counts to make sure the radio has sent the last bytes
-      // before turning it off.
-      if (underflow_count == 4) {
-        RFST = RFST_SIDLE;
-      }
+    switch (packet_mode) { 
+      case FOOTER:
+        if (radio_tx_buf_len > radio_tx_buf_idx) {
+          d_byte = radio_tx_buf[radio_tx_buf_idx++];
+          RFD = d_byte;
+        } else {
+          RFD = packet_length_signifier;
+          underflow_count++;
+          // We wait a few counts to make sure the radio has sent the last bytes
+          // before turning it off.
+          if (underflow_count == 4) {
+            RFST = RFST_SIDLE;
+          }
+        }
+        break;
+      case FIXED:
+        if (radio_tx_buf_len > radio_tx_buf_idx) {
+          d_byte = radio_tx_buf[radio_tx_buf_idx++];
+          RFD = d_byte;
+        } else {
+          underflow_count++;
+          // We wait a few counts to make sure the radio has sent the last bytes
+          // before turning it off.
+          if (underflow_count == 4) {
+            RFST = RFST_SIDLE;
+          }
+        }
+        break;
+      case VARIABLE:
+        break;
     }
   }
 }
@@ -157,20 +198,37 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
   CHANNR = channel;
   //led_set_state(1,1);
 
-  while (1) {
-    s_byte = serial_rx_byte();
-    if (radio_tx_buf_len == (MAX_PACKET_LEN - 1)) {
-      s_byte = packet_length_signifier;
-    }
-    radio_tx_buf[radio_tx_buf_len++] = s_byte;
-    if (s_byte == packet_length_signifier) {
-      break;
-    }
+  switch (packet_mode) {
+    case FOOTER:
+      while (1) {
+        s_byte = serial_rx_byte();
+        if (radio_tx_buf_len == (MAX_PACKET_LEN - 1)) {
+          s_byte = packet_length_signifier;
+        }
+        radio_tx_buf[radio_tx_buf_len++] = s_byte;
+        if (s_byte == packet_length_signifier) {
+          break;
+        }
 
-    if (radio_tx_buf_len == 2) { 
-      // Turn on radio
-      RFST = RFST_STX;
-    }
+        if (radio_tx_buf_len == 2) { 
+          // Turn on radio
+          RFST = RFST_STX;
+        }
+      }
+	  break;
+    case FIXED:
+	  while (radio_tx_buf_idx < packet_length_signifier) {
+        s_byte = serial_rx_byte();
+        radio_tx_buf[radio_tx_buf_len++] = s_byte;
+
+        if (radio_tx_buf_len == 2) { 
+          // Turn on radio
+          RFST = RFST_STX;
+        }
+      }
+      break;
+    case VARIABLE:
+      break;
   }
 
   // wait for sending to finish
@@ -234,37 +292,69 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
   RFST = RFST_SRX;
   while(MARCSTATE!=MARC_STATE_RX);
   
-  while(1) {
-    // Waiting for isr to put radio bytes into radio_rx_buf
-    if (radio_rx_buf_len > read_idx) {
-      //led_set_state(0,1);
+  switch(packet_mode) {
+	case FOOTER:
+	  while(1) {
+		// Waiting for isr to put radio bytes into radio_rx_buf
+		if (radio_rx_buf_len > read_idx) {
+		  //led_set_state(0,1);
 
-      if (read_idx == 0 && radio_rx_buf_len > 2 && radio_rx_buf[2] == packet_length_signifier) {
-        rval = ERROR_ZERO_DATA;
-        break;
-      }
-      d_byte = radio_rx_buf[read_idx];
-      serial_tx_byte(d_byte);
-      read_idx++;
-      if (read_idx > 1 && d_byte == packet_length_signifier) {
-        // End of packet.
-        break;
-      }
-    }
+		  if (read_idx == 0 && radio_rx_buf_len > 2 && radio_rx_buf[2] == packet_length_signifier) {
+			rval = ERROR_ZERO_DATA;
+			break;
+		  }
+		  d_byte = radio_rx_buf[read_idx];
+		  serial_tx_byte(d_byte);
+		  read_idx++;
+		  if (read_idx > 1 && d_byte == packet_length_signifier) {
+			// End of packet.
+			break;
+		  }
+		}
 
-    if (timeout_ms > 0 && timerCounter > timeout_ms) {
-      rval = ERROR_RX_TIMEOUT;
-      break;
-    }
-  
-    // Also going to watch serial in case the client wants to interrupt rx
-    if (SERIAL_DATA_AVAILABLE) {
-      // Received a byte from uart while waiting for radio packet
-      // We will interrupt the RX and go handle the command.
-      interrupting_cmd = serial_rx_byte();
-	  rval = ERROR_CMD_INTERRUPTED;
-      break;
-    }
+		if (timeout_ms > 0 && timerCounter > timeout_ms) {
+		  rval = ERROR_RX_TIMEOUT;
+		  break;
+		}
+	  
+		// Also going to watch serial in case the client wants to interrupt rx
+		if (SERIAL_DATA_AVAILABLE) {
+		  // Received a byte from uart while waiting for radio packet
+		  // We will interrupt the RX and go handle the command.
+		  interrupting_cmd = serial_rx_byte();
+		  rval = ERROR_CMD_INTERRUPTED;
+		  break;
+		}
+	  }
+	  break;
+	case FIXED:
+	  while(read_idx < packet_length_signifier) {
+		// Waiting for isr to put radio bytes into radio_rx_buf
+		if (radio_rx_buf_len > read_idx) {
+		  //led_set_state(0,1);
+
+		  d_byte = radio_rx_buf[read_idx];
+		  serial_tx_byte(d_byte);
+		  read_idx++;
+		}
+
+		if (timeout_ms > 0 && timerCounter > timeout_ms) {
+		  rval = ERROR_RX_TIMEOUT;
+		  break;
+		}
+	  
+		// Also going to watch serial in case the client wants to interrupt rx
+		if (SERIAL_DATA_AVAILABLE) {
+		  // Received a byte from uart while waiting for radio packet
+		  // We will interrupt the RX and go handle the command.
+		  interrupting_cmd = serial_rx_byte();
+		  rval = ERROR_CMD_INTERRUPTED;
+		  break;
+		}
+	  }
+	  break;
+	case VARIABLE:
+	  break;
   }
   RFST = RFST_SIDLE;
   //led_set_state(0,0);
