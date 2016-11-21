@@ -106,9 +106,11 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           // Overflow
         }
         if (d_byte == packet_length_signifier) {
+		  serial_tx_byte(249);
           RFST = RFST_SIDLE;
           while(MARCSTATE!=MARC_STATE_IDLE);
         }
+		serial_tx_byte(254);
         break;
       case FIXED:
 	    if (radio_rx_buf_len == 0) {
@@ -125,9 +127,12 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           RFST = RFST_SIDLE;
 		  while(MARCSTATE!=MARC_STATE_IDLE);
         }
+		serial_tx_byte(253);
         break;
 	  case VARIABLE:
         break;
+	  default:
+	    break;
     }
   }
   else if (MARCSTATE==MARC_STATE_TX) {
@@ -135,8 +140,10 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
       case FOOTER:
         if (radio_tx_buf_len > radio_tx_buf_idx) {
           d_byte = radio_tx_buf[radio_tx_buf_idx++];
+		  serial_tx_byte(radio_tx_buf_idx);
           RFD = d_byte;
         } else {
+		  serial_tx_byte(249);
           RFD = packet_length_signifier;
           underflow_count++;
           // We wait a few counts to make sure the radio has sent the last bytes
@@ -145,6 +152,7 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
             RFST = RFST_SIDLE;
           }
         }
+		serial_tx_byte(254);
         break;
       case FIXED:
         if (radio_tx_buf_len > radio_tx_buf_idx) {
@@ -158,9 +166,12 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
             RFST = RFST_SIDLE;
           }
         }
+		serial_tx_byte(253);
         break;
       case VARIABLE:
         break;
+	  default:
+	    break;
     }
   }
 }
@@ -207,6 +218,8 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
         }
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
         if (s_byte == packet_length_signifier) {
+		  // End of packet
+		  serial_tx_byte(250);
           break;
         }
 
@@ -215,19 +228,23 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
           RFST = RFST_STX;
         }
       }
+	  serial_tx_byte(252);
 	  break;
     case FIXED:
-	  while (radio_tx_buf_idx < packet_length_signifier) {
+	  while (radio_tx_buf_len < packet_length_signifier) {
         s_byte = serial_rx_byte();
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
-
+		serial_tx_byte(radio_tx_buf_len);
         if (radio_tx_buf_len == 2) { 
           // Turn on radio
           RFST = RFST_STX;
         }
       }
+	  serial_tx_byte(251);
       break;
     case VARIABLE:
+      break;
+	default:
       break;
   }
 
@@ -308,6 +325,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  read_idx++;
 		  if (read_idx > 1 && d_byte == packet_length_signifier) {
 			// End of packet.
+			serial_tx_byte(250);
 			break;
 		  }
 		}
@@ -326,6 +344,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  break;
 		}
 	  }
+	  serial_tx_byte(252);
 	  break;
 	case FIXED:
 	  while(read_idx < packet_length_signifier) {
@@ -352,9 +371,12 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  break;
 		}
 	  }
+	  serial_tx_byte(251);
 	  break;
 	case VARIABLE:
 	  break;
+	default:
+	    break;
   }
   RFST = RFST_SIDLE;
   //led_set_state(0,0);
