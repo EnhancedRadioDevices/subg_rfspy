@@ -6,7 +6,7 @@
 #include "delay.h"
 #include "timer.h"
 
-#define MAX_PACKET_LEN 192
+#define MAX_PACKET_LEN 12
 volatile uint8_t __xdata radio_tx_buf[MAX_PACKET_LEN];
 volatile uint8_t radio_tx_buf_len = 0;
 volatile uint8_t radio_tx_buf_idx = 0;
@@ -82,7 +82,6 @@ void configure_radio()
 
 void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
   uint8_t d_byte;
-  serial_tx_byte(239);
   if (MARCSTATE==MARC_STATE_RX) {
     d_byte = RFD;
 	switch(packet_mode) {
@@ -107,11 +106,9 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           // Overflow
         }
         if (d_byte == packet_length_signifier) {
-		  serial_tx_byte(249);
           RFST = RFST_SIDLE;
           while(MARCSTATE!=MARC_STATE_IDLE);
         }
-		serial_tx_byte(254);
         break;
       case FIXED:
 	    if (radio_rx_buf_len == 0) {
@@ -121,15 +118,29 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           radio_rx_buf_len = 2;
         }
 	
-        if (radio_rx_buf_len < packet_length_signifier) {
+        if (radio_rx_buf_len < packet_length_signifier + 2) {
           radio_rx_buf[radio_rx_buf_len] = d_byte;
           radio_rx_buf_len++;
         } else {
           RFST = RFST_SIDLE;
 		  while(MARCSTATE!=MARC_STATE_IDLE);
         }
-		serial_tx_byte(253);
         break;
+	  case VARIABLE:
+		if (radio_rx_buf_len == 0) {
+		  radio_rx_buf[0] = RSSI;
+		  radio_rx_buf[1] = packet_count;
+		  packet_count++;
+		  radio_rx_buf[2] = d_byte;
+		  radio_rx_buf_len = 3;
+		} else if (radio_rx_buf_len < radio_rx_buf[2] + 2) {
+		  radio_rx_buf[radio_rx_buf_len] = d_byte;
+		  radio_rx_buf_len++;
+		} else {
+		  RFST = RFST_SIDLE;
+		  while(MARCSTATE!=MARC_STATE_IDLE);
+		}
+		break;
 	  default:
 	    RFST = RFST_SIDLE;
         while(MARCSTATE!=MARC_STATE_IDLE);
@@ -137,18 +148,13 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
     }
   }
   else if (MARCSTATE==MARC_STATE_TX) {
-	serial_tx_byte(242);
     switch (packet_mode) { 
       case FOOTER:
-	    serial_tx_byte(241);
         if (radio_tx_buf_len > radio_tx_buf_idx) {
-		  serial_tx_byte(240);
           d_byte = radio_tx_buf[radio_tx_buf_idx++];
-		  serial_tx_byte(radio_tx_buf_idx);
           RFD = d_byte;
         } else {
-		  serial_tx_byte(249);
-          RFD = packet_length_signifier;
+          RFD = packet_length_signifier; // Something must be written to RFD whenever the ISR is called.
           underflow_count++;
           // We wait a few counts to make sure the radio has sent the last bytes
           // before turning it off.
@@ -156,13 +162,13 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
             RFST = RFST_SIDLE;
           }
         }
-		serial_tx_byte(254);
         break;
       case FIXED:
         if (radio_tx_buf_len > radio_tx_buf_idx) {
           d_byte = radio_tx_buf[radio_tx_buf_idx++];
           RFD = d_byte;
         } else {
+		  RFD = 0; // Something must be written to RFD whenever the ISR is called.
           underflow_count++;
           // We wait a few counts to make sure the radio has sent the last bytes
           // before turning it off.
@@ -170,9 +176,23 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
             RFST = RFST_SIDLE;
           }
         }
-		serial_tx_byte(253);
         break;
+	  case VARIABLE:
+		if (radio_tx_buf_len > radio_tx_buf_idx) {
+		  d_byte = radio_tx_buf[radio_tx_buf_idx++];
+		  RFD = d_byte;
+		} else {
+		  RFD = 0; // Something must be written to RFD whenever the ISR is called.
+		  underflow_count++;
+		  // We wait a few counts to make sure the radio has sent the last bytes
+          // before turning it off.
+		  if (underflow_count == 4) {
+			RFST = RFST_SIDLE;
+		  }
+		}
+		break;
 	  default:
+		RFD = 0; // Something must be written to RFD whenever the ISR is called.
 	    RFST = RFST_SIDLE;
 	    break;
     }
@@ -211,24 +231,17 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
 
   CHANNR = channel;
   //led_set_state(1,1);
-
-  serial_tx_byte(247);
-  serial_tx_byte(packet_mode);
   
   switch (packet_mode) {
     case FOOTER:
-      while (1) {
-		serial_tx_byte(248);
-        s_byte = serial_rx_byte();
-		serial_tx_byte(243);
+      while (SERIAL_DATA_AVAILABLE) {
+		s_byte = serial_rx_byte(); 
         if (radio_tx_buf_len == (MAX_PACKET_LEN - 1)) {
           s_byte = packet_length_signifier;
         }
-		serial_tx_byte(s_byte);
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
         if (s_byte == packet_length_signifier) {
 		  // End of packet
-		  serial_tx_byte(250);
           break;
         }
 
@@ -237,25 +250,30 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
           RFST = RFST_STX;
         }
       }
-	  serial_tx_byte(252);
 	  break;
     case FIXED:
 	  while (radio_tx_buf_len < packet_length_signifier) {
         s_byte = serial_rx_byte();
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
-		serial_tx_byte(radio_tx_buf_len);
-        if (radio_tx_buf_len == 2) { 
+		
+		if (radio_tx_buf_len == packet_length_signifier) {
+		  // End of packet
+		  break;
+		}
+        if (radio_tx_buf_len == 2) {
           // Turn on radio
           RFST = RFST_STX;
         }
+		
       }
-	  serial_tx_byte(251);
       break;
+	case VARIABLE:
+	  while (radio_tx_buf_len < )
 	default:
 	  serial_tx_byte(244);
       break;
   }
-
+  
   // wait for sending to finish
   while(MARCSTATE!=MARC_STATE_IDLE);
 
@@ -333,7 +351,6 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  read_idx++;
 		  if (read_idx > 1 && d_byte == packet_length_signifier) {
 			// End of packet.
-			serial_tx_byte(250);
 			break;
 		  }
 		}
@@ -352,14 +369,12 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  break;
 		}
 	  }
-	  serial_tx_byte(252);
 	  break;
 	case FIXED:
-	  while(read_idx < packet_length_signifier) {
+	  while(read_idx < packet_length_signifier + 2) {
 		// Waiting for isr to put radio bytes into radio_rx_buf
 		if (radio_rx_buf_len > read_idx) {
 		  //led_set_state(0,1);
-
 		  d_byte = radio_rx_buf[read_idx];
 		  serial_tx_byte(d_byte);
 		  read_idx++;
@@ -379,7 +394,6 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  break;
 		}
 	  }
-	  serial_tx_byte(251);
 	  break;
 	default:
 	  serial_tx_byte(244);
