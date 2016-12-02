@@ -411,7 +411,27 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 	  break;
 	case VARIABLE:
 	  while(read_idx < radio_rx_buf[2] + 2) {
-		  
+		// Waiting for isr to put radio bytes into radio_rx_buf
+		if (radio_rx_buf_len > read_idx) {
+		  //led_set_state(0,1);
+		  d_byte = radio_rx_buf[read_idx];
+		  serial_tx_byte(d_byte);
+		  read_idx++;
+		}
+		
+		if (timeout_ms > 0 && timerCounter > timeout_ms) {
+		  rval = ERROR_RX_TIMEOUT;
+		  break;
+		}
+	  
+		// Also going to watch serial in case the client wants to interrupt rx
+		if (SERIAL_DATA_AVAILABLE) {
+		  // Received a byte from uart while waiting for radio packet
+		  // We will interrupt the RX and go handle the command.
+		  interrupting_cmd = serial_rx_byte();
+		  rval = ERROR_CMD_INTERRUPTED;
+		  break;
+		}
 	  }
 	  break;
 	default:
