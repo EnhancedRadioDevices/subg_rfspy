@@ -6,7 +6,7 @@
 #include "delay.h"
 #include "timer.h"
 
-#define MAX_PACKET_LEN 12
+#define MAX_PACKET_LEN 192
 volatile uint8_t __xdata radio_tx_buf[MAX_PACKET_LEN];
 volatile uint8_t radio_tx_buf_len = 0;
 volatile uint8_t radio_tx_buf_idx = 0;
