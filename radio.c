@@ -221,6 +221,7 @@ void rf_isr(void) __interrupt RF_VECTOR {
 
 void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t delay_ms) {
   uint8_t s_byte;
+  uint8_t variable_len;
   
   radio_tx_buf_len = 0;
   radio_tx_buf_idx = 0;
@@ -268,7 +269,20 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
       }
       break;
 	case VARIABLE:
-	  while (radio_tx_buf_len < )
+	  variable_len = serial_rx_byte();
+	  while (radio_tx_buf_len < variable_len) {
+		s_byte = serial_rx_byte();
+        radio_tx_buf[radio_tx_buf_len++] = s_byte;
+		
+		if (radio_tx_buf_len == variable_len) {
+		  // End of packet
+		  break;
+		}
+        if (radio_tx_buf_len == 2) {
+          // Turn on radio
+          RFST = RFST_STX;
+        }
+	  }
 	default:
 	  serial_tx_byte(244);
       break;
@@ -393,6 +407,11 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
 		  rval = ERROR_CMD_INTERRUPTED;
 		  break;
 		}
+	  }
+	  break;
+	case VARIABLE:
+	  while(read_idx < radio_rx_buf[2] + 2) {
+		  
 	  }
 	  break;
 	default:
