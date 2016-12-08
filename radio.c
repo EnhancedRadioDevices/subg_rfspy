@@ -82,7 +82,6 @@ void configure_radio()
 
 void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
   uint8_t d_byte;
-  SLEEP &= ~0x07;
   if (MARCSTATE==MARC_STATE_RX) {
     d_byte = RFD;
 	switch(packet_mode) {
@@ -201,7 +200,6 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
 }
 
 void rf_isr(void) __interrupt RF_VECTOR {
-  SLEEP &= ~0x07;
   S1CON &= ~0x03; // Clear CPU interrupt flag
   if(RFIF & 0x80) // TX underflow
   {

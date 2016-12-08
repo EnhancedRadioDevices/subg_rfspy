@@ -293,7 +293,6 @@ static void usb_ep0()
 // so when we hook that up, fix this
 void usb_isr() __interrupt 6
 {
-  SLEEP &= ~0x07;
   USBIF = 0;
   usb_iif |= USBIIF;
   usb_ep0();
