@@ -29,10 +29,10 @@ void cmd_get_packet() {
   channel = serial_rx_byte();
   timeout_ms = serial_rx_long();
   result = get_packet_and_write_to_serial(channel, timeout_ms);
-  if (result != 0) {
+  if (result != packet_length_signifier) {
     serial_tx_byte(result);
-    serial_tx_byte(0);
   }
+  serial_tx_byte(0);
 }
 
 void cmd_get_state() {
@@ -210,6 +210,12 @@ void cmd_read_register() {
     case 0x21:
       value = PA_TABLE0;
       break;
+	case 0xFD:
+	  value = packet_length_signifier;
+	  break;
+	case 0xFE:
+	  value = packet_mode;
+	  break;
     default:
       value = 0x5A;
   }
@@ -327,6 +333,12 @@ void cmd_update_register() {
     case 0x21:
       PA_TABLE0 = value;
       break;
+	case 0xFD:
+	  packet_length_signifier = value;
+	  break;
+	case 0xFE:
+	  packet_mode = value;
+	  break;
     default:
       rval = 2;
   }

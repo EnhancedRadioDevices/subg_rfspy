@@ -10,7 +10,6 @@ volatile uint8_t __xdata spi_input_buf[SPI_BUF_LEN];
 volatile uint8_t input_size = 0;
 volatile uint8_t input_head_idx = 0;
 volatile uint8_t input_tail_idx = 0;
-volatile uint8_t input_ckpt_idx = 0;
 
 volatile uint8_t __xdata spi_output_buf[SPI_BUF_LEN];
 volatile uint8_t output_size = 0;
@@ -89,42 +88,13 @@ void configure_serial()
 
   IRCON2 &= ~BIT2; // Clear UTX1IF
   IEN2 |= BIT3;    // Enable UTX1IE interrupt
-  
-  // T4IF automatically cleared by hardwaware when CPU vectors to the ISR
-  
-  IP0 = 0x10;	// Set Priority Group 4 to Priority Level 1 (default 0)
-  T4CC0 = 0xFF; // Set Timer 4 Compare value
-  T4CTL = 0xE7; // Configure Timer 4 with 128 div, Up/Down Mode, clear counter, suspended
-}
-
-void t4_isr(void) __interrupt T4_VECTOR { //
-  T4OVFIF = 0; // Clear Timer 4 Overflow flag
-  T4CTL = 0xE7;
-  spi_mode = SPI_MODE_WAIT;
-  master_send_size = 0;
-  input_size = 0;
-  if (input_tail_idx > input_ckpt_idx ) {
-	  if (input_tail_idx <= input_head_idx || input_head_idx < input_ckpt_idx) {
-		  input_tail_idx = input_ckpt_idx;
-	  }
-  } else if (input_tail_idx <= input_head_idx && input_head_idx < input_ckpt_idx) {
-	  input_tail_idx = input_ckpt_idx;
-  }
-  input_head_idx = input_ckpt_idx;
-  T4IE = 0;		// Disable T4IE interrupt
 }
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
   uint8_t value;
   value = U1DBUF;
-  T4CTL |= 0x04; // Clear Timer 4 counter
 
   if (spi_mode == SPI_MODE_WAIT && value == 0x99) {
-	T4CTL |= 0x0C; // Enable Timer 4 Overflow Interrupt Mask, clear counter
-    T4OVFIF = 0; // Clear Timer 4 Overflow flag
-    T4IF = 0; // Clear Timer 4 Interrupt flag
-    T4CTL |= 0x10; // Start Timer 4
-    T4IE = 1;		// Enable T4IE interrupt
     if (ready_to_send) {
       slave_send_size = output_size;
       ready_to_send = 0;
@@ -142,7 +112,6 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
       spi_mode = SPI_MODE_XFER;
     } else {
       spi_mode = SPI_MODE_WAIT;
-	  T4IE = 0;		// Disable T4IE interrupt
     }
     return;
   }
@@ -158,14 +127,10 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
       if (input_size == master_send_size) {
         master_send_size = 0;
         serial_data_available = 1;
-		spi_mode = SPI_MODE_WAIT;
-		input_ckpt_idx = input_head_idx;
-		T4IE = 0;
       }
     }
     if (slave_send_size == 0 && master_send_size == 0) {
       spi_mode = SPI_MODE_WAIT;
-	  T4IE = 0;
     }
   }
 }
@@ -177,7 +142,6 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
       slave_send_size--;
       if (slave_send_size == 0 && master_send_size == 0) {
         spi_mode = SPI_MODE_WAIT;
-		T4IE = 0;
       }
       U1DBUF = spi_output_buf[output_tail_idx];
       output_size--;

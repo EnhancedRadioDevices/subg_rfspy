@@ -2,6 +2,8 @@
 #define RADIO_H
 
 void configure_radio();
+extern volatile enum MODE packet_mode;
+extern volatile uint8_t packet_length_signifier;
 
 // Return values:
 //  0 = timed out

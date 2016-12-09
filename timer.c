@@ -37,7 +37,7 @@ void init_timer() {
   T1IE = 1;
   EA = 1;
 
-  T1CTL = 0x02;  // TickFreq/1, modulo
+  T1CTL = 0x0e;  // TickFreq/128, modulo
 }
 
 void reset_timer() {
