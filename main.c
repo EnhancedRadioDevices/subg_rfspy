@@ -48,6 +48,7 @@ int main(void)
 
   configure_radio();
   configure_serial();
+  configure_hardware();
 
   while(1) {
     //led_set_state(0,2);

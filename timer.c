@@ -46,7 +46,7 @@ void reset_timer() {
 
 void t1_isr(void) __interrupt T1_VECTOR
 {
-  SLEEP &= ~0x07;
+  SLEEP &= 0xFC;
   if (timerCounter % 1000 == 0) {
     //BLUE_LED = !BLUE_LED;
   }

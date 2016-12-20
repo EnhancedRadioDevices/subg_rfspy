@@ -51,7 +51,7 @@ void configure_serial()
 }
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
-  SLEEP &= ~0x07;
+  SLEEP &= 0xFC;
   URX1IF = 0;
   if (input_size < SERIAL_BUF_LEN) {
     serial_input_buf[input_head_idx] = U1DBUF;
