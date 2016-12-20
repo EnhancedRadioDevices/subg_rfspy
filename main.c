@@ -53,5 +53,14 @@ int main(void)
   while(1) {
     //led_set_state(0,2);
     get_command();
+	
+	// go to sleep
+	SLEEP |= 0x01;
+	NOP();
+	NOP();
+	NOP();
+	if ((SLEEP & 0x07) != 0) {
+		PCON |= 0x01;
+    }
   }
 }

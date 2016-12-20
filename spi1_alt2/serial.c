@@ -92,6 +92,7 @@ void configure_serial()
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
   uint8_t value;
+  SLEEP &= ~0x07;
   value = U1DBUF;
 
   if (spi_mode == SPI_MODE_WAIT && value == 0x99) {
@@ -136,6 +137,7 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
 }
 
 void tx1_isr(void) __interrupt UTX1_VECTOR {
+  SLEEP &= ~0x07;
   IRCON2 &= ~BIT2; // Clear UTX1IF
   if (spi_mode == SPI_MODE_SIZE || spi_mode == SPI_MODE_XFER) {
     if (slave_send_size > 0 && output_size > 0) {
