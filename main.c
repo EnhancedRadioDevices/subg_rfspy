@@ -12,10 +12,10 @@
 void t1_isr(void) __interrupt T1_VECTOR;
 void rftxrx_isr(void) __interrupt RFTXRX_VECTOR;
 void rf_isr(void) __interrupt RF_VECTOR;
+void p1_isr(void) __interrupt P1INT_VECTOR;
 
 #ifdef USES_USART1_RX_ISR
 void rx1_isr(void) __interrupt URX1_VECTOR;
-void t4_isr(void) __interrupt T4_VECTOR; //
 #endif 
 
 #ifdef USES_USART1_TX_ISR
@@ -37,7 +37,6 @@ int main(void)
   while (CLKCON & CLKCON_OSC);
   SLEEP |= SLEEP_OSC_PD;
 
-
   // init LEDS
   HARDWARE_LED_INIT;       // see hardware.h
   led_set_state(0, 0); //GREEN_LED = 0;
@@ -53,14 +52,15 @@ int main(void)
   while(1) {
     //led_set_state(0,2);
     get_command();
-	
+
 	// go to sleep
-	SLEEP |= 0x01;
+	SLEEP = (SLEEP & 0xFC) | 0x01; // Power Mode 1
 	NOP();
 	NOP();
-	NOP();
-	if ((SLEEP & 0x07) != 0) {
+	NOP(); // Three NOPs while sleep registers are set
+	if (SLEEP & 0x03) {
 		PCON |= 0x01;
+		NOP(); // First command after waking up should always be NOP
     }
   }
 }

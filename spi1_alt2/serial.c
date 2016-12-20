@@ -88,6 +88,10 @@ void configure_serial()
 
   IRCON2 &= ~BIT2; // Clear UTX1IF
   IEN2 |= BIT3;    // Enable UTX1IE interrupt
+  
+  IRCON2 &= ~BIT3; // Clear P1IF
+  IEN2 |= BIT4;    // Enable P1INT interrupt
+  P1IEN |= BIT4;    // Enable P1_4 interrupt
 }
 
 void rx1_isr(void) __interrupt URX1_VECTOR {
@@ -134,6 +138,12 @@ void rx1_isr(void) __interrupt URX1_VECTOR {
       spi_mode = SPI_MODE_WAIT;
     }
   }
+}
+
+void p1_isr(void) __interrupt P1INT_VECTOR {
+	P1IFG = 0xEF; // Clear Port1 pin4 interrupt flag
+	IRCON2 &= 0xF7; // Clear IRCON2.P1IF (Port1 CPU interrupt flag)
+	SLEEP &= 0xFC; 
 }
 
 void tx1_isr(void) __interrupt UTX1_VECTOR {
