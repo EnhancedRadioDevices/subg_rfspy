@@ -367,6 +367,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
           read_idx++;
           if (read_idx > 1 && d_byte == packet_length_signifier) {
             // End of packet.
+			serial_tx_byte(254);
             break;
           }
         }
@@ -381,7 +382,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
           // Received a byte from uart while waiting for radio packet
           // We will interrupt the RX and go handle the command.
           interrupting_cmd = serial_rx_byte();
-          rval = ERROR_CMD_INTERRUPTED;
+          rval = interrupting_cmd; //ERROR_CMD_INTERRUPTED;
           break;
         }
       }

@@ -12,7 +12,7 @@
 void t1_isr(void) __interrupt T1_VECTOR;
 void rftxrx_isr(void) __interrupt RFTXRX_VECTOR;
 void rf_isr(void) __interrupt RF_VECTOR;
-void p1_isr(void) __interrupt P1INT_VECTOR;
+void p1_isr(void) __interrupt P1INT_VECTOR; //Required for external wakeups on port for while in sleep mode
 
 #ifdef USES_USART1_RX_ISR
 void rx1_isr(void) __interrupt URX1_VECTOR;

@@ -19,7 +19,9 @@ void configure_hardware()
 }
 
 void p1_isr(void) __interrupt P1INT_VECTOR {
-	P1IFG = 0xEF; // Clear Port1 pin4 interrupt flag
+	serial_tx_byte(253);
+	P1IFG = 0xEF; // Clear Port1 pin4 interrupt flag. During send,receive,reset actions with sleep enabled, CC1110 does not seem to get past this step?
+	serial_tx_byte(252);
 	IRCON2 &= 0xF7; // Clear IRCON2.P1IF (Port1 CPU interrupt flag)
 	SLEEP &= 0xFC; 
 }
