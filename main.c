@@ -33,7 +33,7 @@ int main(void)
   // ref. [clk]=>[clk_xosc.c]
   SLEEP &= ~SLEEP_OSC_PD;
   while( !(SLEEP & SLEEP_XOSC_S) );
-  CLKCON = (CLKCON & ~(CLKCON_CLKSPD | CLKCON_OSC)) | CLKSPD_DIV_1; //
+  CLKCON = (CLKCON & ~(CLKCON_CLKSPD | CLKCON_OSC)) | CLKSPD_DIV_1;
   while (CLKCON & CLKCON_OSC);
   SLEEP |= SLEEP_OSC_PD;
 

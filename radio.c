@@ -95,9 +95,9 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           radio_rx_buf[1] = packet_count; 
           packet_count++;
           radio_rx_buf_len = 2;
-          if (packet_count == packet_length_signifier) {
-            packet_count = packet_count + 1;
-          }
+        }
+        if (packet_count == packet_length_signifier) {
+          packet_count = packet_count + 1;
         }
 
         if (radio_rx_buf_len < MAX_PACKET_LEN) {
@@ -234,11 +234,11 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
 
   CHANNR = channel;
   //led_set_state(1,1);
-  
+
   switch (packet_mode) {
     case FOOTER:
       while (SERIAL_DATA_AVAILABLE) {
-        s_byte = serial_rx_byte(); 
+        s_byte = serial_rx_byte();
         if (radio_tx_buf_len == (MAX_PACKET_LEN - 1)) {
           s_byte = packet_length_signifier;
         }
@@ -262,12 +262,11 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
         if (radio_tx_buf_len == packet_length_signifier) {
           // End of packet
           break;
-		}
+        }
         if (radio_tx_buf_len == 2) {
           // Turn on radio
           RFST = RFST_STX;
         }
-	
       }
       break;
     case VARIABLE:
@@ -275,7 +274,7 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
       while (radio_tx_buf_len < variable_len) {
         s_byte = serial_rx_byte();
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
-	
+
         if (radio_tx_buf_len == variable_len) {
           // End of packet
           break;
@@ -292,7 +291,6 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
   
   // wait for sending to finish
   while(MARCSTATE!=MARC_STATE_IDLE);
-
   while(repeat_count > 0) {
     // Reset idx to beginning of buffer
     radio_tx_buf_idx = 0;
@@ -365,14 +363,13 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
           d_byte = radio_rx_buf[read_idx];
           serial_tx_byte(d_byte);
           read_idx++;
-          if (read_idx > 1 && d_byte == packet_length_signifier) {
+          if (read_idx > 1 && read_idx == radio_rx_buf_len && d_byte == packet_length_signifier) {
             // End of packet.
-			serial_tx_byte(254);
             break;
           }
         }
 
-        if (timeout_ms > 0 && timerCounter > timeout_ms) {
+        if (timeout_ms > 0 && timerCounter > timeout_ms && radio_rx_buf_len == 0) {
           rval = ERROR_RX_TIMEOUT;
           break;
         }
@@ -382,7 +379,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
           // Received a byte from uart while waiting for radio packet
           // We will interrupt the RX and go handle the command.
           interrupting_cmd = serial_rx_byte();
-          rval = interrupting_cmd; //ERROR_CMD_INTERRUPTED;
+          rval = ERROR_CMD_INTERRUPTED;
           break;
         }
       }
@@ -401,7 +398,7 @@ uint8_t get_packet_and_write_to_serial(uint8_t channel, uint32_t timeout_ms) {
           rval = ERROR_RX_TIMEOUT;
           break;
         }
-		
+
         // Also going to watch serial in case the client wants to interrupt rx
         if (SERIAL_DATA_AVAILABLE) {
           // Received a byte from uart while waiting for radio packet
