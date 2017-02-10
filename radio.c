@@ -94,10 +94,10 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           }
           radio_rx_buf[1] = packet_count; 
           packet_count++;
+          radio_rx_buf_len = 2;
           if (packet_count == packet_length_signifier) {
             packet_count = packet_count + 1;
           }
-          radio_rx_buf_len = 2;
         }
 
         if (radio_rx_buf_len < MAX_PACKET_LEN) {
@@ -224,7 +224,7 @@ void rf_isr(void) __interrupt RF_VECTOR {
 void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t delay_ms) {
   uint8_t s_byte;
   uint8_t variable_len;
-  
+
   radio_tx_buf_len = 0;
   radio_tx_buf_idx = 0;
   underflow_count = 0;

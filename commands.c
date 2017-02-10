@@ -210,12 +210,12 @@ void cmd_read_register() {
     case 0x21:
       value = PA_TABLE0;
       break;
-	case 0xFD:
-	  value = packet_length_signifier;
-	  break;
-	case 0xFE:
-	  value = packet_mode;
-	  break;
+    case 0xFD:
+      value = packet_length_signifier;
+      break;
+    case 0xFE:
+      value = packet_mode;
+      break;
     default:
       value = 0x5A;
   }
@@ -333,12 +333,12 @@ void cmd_update_register() {
     case 0x21:
       PA_TABLE0 = value;
       break;
-	case 0xFD:
-	  packet_length_signifier = value;
-	  break;
-	case 0xFE:
-	  packet_mode = value;
-	  break;
+    case 0xFD:
+      packet_length_signifier = value;
+      break;
+    case 0xFE:
+      packet_mode = value;
+      break;
     default:
       rval = 2;
   }

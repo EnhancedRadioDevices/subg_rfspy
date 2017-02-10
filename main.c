@@ -33,7 +33,7 @@ int main(void)
   // ref. [clk]=>[clk_xosc.c]
   SLEEP &= ~SLEEP_OSC_PD;
   while( !(SLEEP & SLEEP_XOSC_S) );
-  CLKCON = (CLKCON & ~(CLKCON_CLKSPD | CLKCON_OSC)) | (CLKSPD_DIV_1 | CLKCON_TICKSPD); //
+  CLKCON = (CLKCON & ~(CLKCON_CLKSPD | CLKCON_OSC)) | CLKSPD_DIV_1; //
   while (CLKCON & CLKCON_OSC);
   SLEEP |= SLEEP_OSC_PD;
 
@@ -54,14 +54,14 @@ int main(void)
     //led_set_state(0,2);
     get_command();
 
-	// go to sleep
-	SLEEP = (SLEEP & 0xFC) | 0x01; // Power Mode 1
-	NOP();
-	NOP();
-	NOP(); // Three NOPs while sleep registers are set
-	if (SLEEP & 0x03) {
-		PCON |= 0x01;
-		NOP(); // First command after waking up should always be NOP
+    // go to sleep
+    SLEEP = (SLEEP & 0xFC) | 0x01; // Power Mode 1
+    NOP();
+    NOP();
+    NOP(); // Three NOPs while sleep registers are set
+    if (SLEEP & 0x03) {
+        PCON |= 0x01;
+        NOP(); // First command after waking up should always be NOP
     }
   }
 }
