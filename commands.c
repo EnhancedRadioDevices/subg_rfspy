@@ -4,6 +4,7 @@
 #include "serial.h"
 #include "radio.h"
 #include "commands.h"
+#include "delay.h"
 
 uint8_t interrupting_cmd = 0;
 
@@ -26,6 +27,7 @@ void cmd_get_packet() {
   uint8_t channel;
   uint32_t timeout_ms;
   uint8_t result;
+//  led_set_state(0,1);
   channel = serial_rx_byte();
   timeout_ms = serial_rx_long();
   result = get_packet_and_write_to_serial(channel, timeout_ms);
@@ -33,6 +35,7 @@ void cmd_get_packet() {
     serial_tx_byte(result);
   }
   serial_tx_byte(0);
+//  led_set_state(0,0);
 }
 
 void cmd_get_state() {
@@ -51,23 +54,27 @@ void do_cmd(uint8_t cmd) {
 
 void get_command() {
   uint8_t cmd;
+//  led_set_state(0,1);
   cmd = serial_rx_byte();
   do_cmd(cmd);
   if (interrupting_cmd) {
     do_cmd(interrupting_cmd);
     interrupting_cmd = 0;
   }
+//  led_set_state(0,0);
 }
 
 void cmd_send_packet() {
   uint8_t channel;
   uint8_t repeat_count;
   uint8_t delay_ms;
+ // led_set_state(1,1);
   channel = serial_rx_byte();
   repeat_count = serial_rx_byte();
   delay_ms = serial_rx_byte();
   send_packet_from_serial(channel, repeat_count, delay_ms);
   serial_tx_byte(0);
+  //led_set_state(1,0);
 }
 
 /* Combined send and receive */
@@ -227,6 +234,7 @@ void cmd_update_register() {
   uint8_t addr;
   uint8_t value;
   uint8_t rval;
+//  led_set_state(1,1);
   addr = serial_rx_byte();
   value = serial_rx_byte();
   rval = 1;
@@ -344,11 +352,13 @@ void cmd_update_register() {
   }
   serial_tx_byte(rval);
   serial_tx_byte(0);
+//  led_set_state(1,0);
 }
 
 void cmd_reset() {
   EA = 0;
   WDCTL = BIT3 | BIT0;
+  while (1);
 }
 
 void cmd_led() {

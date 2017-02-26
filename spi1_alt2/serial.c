@@ -3,8 +3,10 @@
 #include "hardware.h"
 #include "serial.h"
 #include "radio.h"
+#include "timer.h" //
 
 #define SPI_BUF_LEN 220 
+#define RECEIVE_TIMEOUT 2200
 
 volatile uint8_t __xdata spi_input_buf[SPI_BUF_LEN];
 volatile uint8_t input_size = 0;
@@ -161,8 +163,14 @@ void tx1_isr(void) __interrupt UTX1_VECTOR {
 
 uint8_t serial_rx_byte() {
   uint8_t s_data;
-  while(!SERIAL_DATA_AVAILABLE);
-  s_data = spi_input_buf[input_tail_idx];
+  reset_timer();
+  while(!SERIAL_DATA_AVAILABLE && timerCounter < RECEIVE_TIMEOUT); //Waiting times out after ~2 seconds. Returns to PM1.
+  if(SERIAL_DATA_AVAILABLE){
+    s_data = spi_input_buf[input_tail_idx];
+  }
+  else {
+    return 0;
+  }
   input_tail_idx++;
   if (input_tail_idx >= SPI_BUF_LEN) {
     input_tail_idx = 0;
@@ -172,7 +180,7 @@ uint8_t serial_rx_byte() {
     serial_data_available = 0;
   }
   return s_data;
-} 
+}
 
 uint16_t serial_rx_word() {
   return (serial_rx_byte() << 8) + serial_rx_byte();

@@ -161,6 +161,7 @@ void rftxrx_isr(void) __interrupt RFTXRX_VECTOR {
           // before turning it off.
           if (underflow_count == 4) {
             RFST = RFST_SIDLE;
+            while(MARCSTATE!=MARC_STATE_IDLE); // Sleep Mode troubleshooting addition.
           }
         }
         break;
@@ -251,6 +252,7 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
         if (radio_tx_buf_len == 2) { 
           // Turn on radio
           RFST = RFST_STX;
+          while(MARCSTATE!=MARC_STATE_TX); // Sleep Mode troubleshooting addition
         }
       }
       break;
