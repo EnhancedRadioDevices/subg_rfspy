@@ -62,16 +62,16 @@ int main(void)
 //    IEN2 &= ~BIT0; //rfie
 //    URX1IE = 0; //urx1ie
 //    IEN2 |= BIT4; // Enable P1INT interrupt
-    serial_tx_byte(IEN0);
-	serial_tx_byte(IEN1);
-	serial_tx_byte(IEN2);
-	serial_tx_byte(IP0);
-	serial_tx_byte(IP1);
-	serial_tx_byte(TCON);
-	serial_tx_byte(S0CON);
-	serial_tx_byte(S1CON);
-	serial_tx_byte(IRCON);
-	serial_tx_byte(IRCON2);
+//    serial_tx_byte(IEN0);
+//    serial_tx_byte(IEN1);
+//    serial_tx_byte(IEN2);
+//    serial_tx_byte(IP0);
+//    serial_tx_byte(IP1);
+//    serial_tx_byte(TCON);
+//    serial_tx_byte(S0CON);
+//    serial_tx_byte(S1CON);
+//    serial_tx_byte(IRCON);
+//    serial_tx_byte(IRCON2);
     SLEEP = (SLEEP & 0xFC) | 0x01; // Power Mode 1
 //    serial_tx_byte(SLEEP); // Checkpoint marker. Remove.
     NOP();
