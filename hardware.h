@@ -61,7 +61,7 @@
 #endif
 
 void led_set_mode(uint8_t led, uint8_t new_mode);
-
+void configure_hardware();
 void led_set_state(uint8_t led, uint8_t command);
 
 #endif
