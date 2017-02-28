@@ -11,6 +11,13 @@
 uint8_t green_mode = 2;
 uint8_t blue_mode = 2;
 
+void NOP()
+{
+	__asm
+	nop
+	__endasm;
+}
+
 void configure_hardware()
 {
   IP0 = 0x10; // Set Priority Group 4 to Priority Level 1 (default 0)

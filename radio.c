@@ -244,6 +244,7 @@ void send_packet_from_serial(uint8_t channel, uint8_t repeat_count, uint8_t dela
           s_byte = packet_length_signifier;
         }
         radio_tx_buf[radio_tx_buf_len++] = s_byte;
+		serial_tx_byte(s_byte);
         if (s_byte == packet_length_signifier) {
           // End of packet
           break;
